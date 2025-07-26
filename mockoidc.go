@@ -253,6 +253,11 @@ func (m *MockOIDC) JWKSEndpoint() string {
 	return m.Addr() + JWKSEndpoint
 }
 
+// SetDefaultUser overrides the user returned on calls to `authorization_endpoint`.
+func (m *MockOIDC) SetDefaultUser(user User) {
+	m.UserQueue.SetDefaultUser(user)
+}
+
 func (m *MockOIDC) chainMiddleware(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 	chain := m.forceError(http.HandlerFunc(endpoint))
 	for i := len(m.middleware) - 1; i >= 0; i-- {
