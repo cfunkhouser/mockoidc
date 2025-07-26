@@ -6,20 +6,21 @@ import "sync"
 // call to the authorize endpoint
 type UserQueue struct {
 	sync.Mutex
-	Queue []User
+	queue       []User
+	defaultUser User
 }
 
 // CodeQueue manages the queue of codes returned for each
 // call to the authorize endpoint
 type CodeQueue struct {
 	sync.Mutex
-	Queue []string
+	queue []string
 }
 
 // ErrorQueue manages the queue of errors for handlers to return
 type ErrorQueue struct {
 	sync.Mutex
-	Queue []*ServerError
+	queue []*ServerError
 }
 
 // ServerError is a tester-defined error for a handler to return
@@ -34,7 +35,7 @@ type ServerError struct {
 func (q *UserQueue) Push(user User) {
 	q.Lock()
 	defer q.Unlock()
-	q.Queue = append(q.Queue, user)
+	q.queue = append(q.queue, user)
 }
 
 // Pop a User from the Queue. If empty, return `DefaultUser()`
@@ -42,13 +43,24 @@ func (q *UserQueue) Pop() User {
 	q.Lock()
 	defer q.Unlock()
 
-	if len(q.Queue) == 0 {
+	if len(q.queue) == 0 {
+		if q.defaultUser != nil {
+			return q.defaultUser
+		}
+
 		return DefaultUser()
 	}
 
 	var user User
-	user, q.Queue = q.Queue[0], q.Queue[1:]
+	user, q.queue = q.queue[0], q.queue[1:]
 	return user
+}
+
+func (q *UserQueue) SetDefaultUser(user User) {
+	q.Lock()
+	defer q.Unlock()
+
+	q.defaultUser = user
 }
 
 // Push adds a code to the Queue to be returned by subsequent
@@ -56,7 +68,7 @@ func (q *UserQueue) Pop() User {
 func (q *CodeQueue) Push(code string) {
 	q.Lock()
 	defer q.Unlock()
-	q.Queue = append(q.Queue, code)
+	q.queue = append(q.queue, code)
 }
 
 // Pop a `code` from the Queue. If empty, return a random code
@@ -64,7 +76,7 @@ func (q *CodeQueue) Pop() (string, error) {
 	q.Lock()
 	defer q.Unlock()
 
-	if len(q.Queue) == 0 {
+	if len(q.queue) == 0 {
 		code, err := randomNonce(24)
 		if err != nil {
 			return "", err
@@ -73,7 +85,7 @@ func (q *CodeQueue) Pop() (string, error) {
 	}
 
 	var code string
-	code, q.Queue = q.Queue[0], q.Queue[1:]
+	code, q.queue = q.queue[0], q.queue[1:]
 	return code, nil
 }
 
@@ -82,7 +94,7 @@ func (q *CodeQueue) Pop() (string, error) {
 func (q *ErrorQueue) Push(se *ServerError) {
 	q.Lock()
 	defer q.Unlock()
-	q.Queue = append(q.Queue, se)
+	q.queue = append(q.queue, se)
 }
 
 // Pop a ServerError from the Queue. If empty, return nil
@@ -90,11 +102,11 @@ func (q *ErrorQueue) Pop() *ServerError {
 	q.Lock()
 	defer q.Unlock()
 
-	if len(q.Queue) == 0 {
+	if len(q.queue) == 0 {
 		return nil
 	}
 
 	var se *ServerError
-	se, q.Queue = q.Queue[0], q.Queue[1:]
+	se, q.queue = q.queue[0], q.queue[1:]
 	return se
 }
